@@ -1,0 +1,684 @@
+INCLUDE ZEXCEL_PUBLIC.
+*&---------------------------------------------------------------------*
+*& 包含               ZEXCEL_PUBLIC
+*&---------------------------------------------------------------------*
+DATA: ROWS    TYPE OLE2_OBJECT, "Sheet的行对象
+      COLUMNS TYPE OLE2_OBJECT,
+      G_ROW   TYPE OLE2_OBJECT.
+*&---------------------------------------------------------------------*
+*&      Form  FRM_OPEN_EXCEL
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_L_FULLPATH  text
+*----------------------------------------------------------------------*
+FORM FRM_OPEN_EXCEL  USING    P_FULLPATH P_VISIBLE.
+
+  CREATE OBJECT G_EXCEL 'Excel.Application'.
+  SET PROPERTY OF G_EXCEL 'VISIBLE'  = P_VISIBLE.
+  CALL METHOD OF
+    G_EXCEL
+      'Workbooks' = G_WORKBOOK.
+  CALL METHOD OF
+      G_WORKBOOK
+      'Open'     = G_WORKBOOK
+    EXPORTING
+      #1         = P_FULLPATH.
+  IF SY-SUBRC <> 0.
+    MESSAGE S009(ZHRFD) WITH 'Open file failed!'.
+    STOP.
+  ENDIF.
+
+ENDFORM.                    " FRM_OPEN_EXCEL
+*&---------------------------------------------------------------------*
+*&      Form  FRM_OPEN_EXCEL_SHEET
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_L_SHEET_NUMBER  text
+*----------------------------------------------------------------------*
+FORM FRM_OPEN_EXCEL_SHEET  USING    P_SHEET.
+*   CALL METHOD OF g_workbook 'Worksheets' = g_sheet
+*    EXPORTING
+*      #1      = 'Sheet1'.
+  CALL METHOD OF
+      G_WORKBOOK
+      'Sheets'   = G_SHEET
+    EXPORTING
+      #1         = P_SHEET.
+  CALL METHOD OF
+    G_SHEET
+    'Activate'.
+ENDFORM.                    " FRM_OPEN_EXCEL_SHEET
+*&---------------------------------------------------------------------*
+*&      Form  FRM_COPY_SHEET_ALL
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM FRM_COPY_SHEET_ALL USING P_FROM_SHEET  P_TO_SHEET.
+  CALL METHOD OF
+      G_EXCEL
+      'Sheets' = G_SHEET
+    EXPORTING
+      #1       = P_FROM_SHEET.
+  CALL METHOD OF
+    G_SHEET
+      'Cells' = G_CELL.
+  CALL METHOD OF
+    G_CELL
+    'Copy'.
+
+  CALL METHOD OF
+      G_EXCEL
+      'Sheets' = G_SHEET
+    EXPORTING
+      #1       = P_TO_SHEET.
+
+  CALL METHOD OF
+      G_EXCEL
+      'Range' = G_RANGE
+    EXPORTING
+      #1      = 'A1'.
+
+  CALL METHOD OF
+    G_RANGE
+    'PasteSpecial'.
+
+ENDFORM.                    " FRM_COPY_SHEET_ALL
+*&---------------------------------------------------------------------*
+*&      Form  FRM_SAVE_EXCEL
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_L_FULLPATH  text
+*----------------------------------------------------------------------*
+FORM FRM_SAVE_EXCEL  USING    P_FULLPATH.
+  SET PROPERTY OF G_EXCEL 'DisplayAlerts' = 0.
+
+  CALL METHOD OF
+    G_SHEET
+    'SAVEAS'
+    EXPORTING
+      #1 = P_FULLPATH
+      #2 = 1.
+
+*****关闭WORKSHEET****
+  CALL METHOD OF
+    G_SHEET
+    'CLOSE'.
+*****关闭WORKBOOK
+  CALL METHOD OF
+    G_WORKBOOK
+    'SAVE'.
+  CALL METHOD OF
+    G_WORKBOOK
+    'CLOSE'
+    EXPORTING
+      #1 = 0.
+*****关闭EXCEL对象****
+  CALL METHOD OF
+    G_EXCEL
+    'QUIT'.
+
+  FREE OBJECT G_RANGE.
+  FREE OBJECT G_CELL.
+  FREE OBJECT G_SHEET.
+  FREE OBJECT G_WORKBOOK.
+  FREE OBJECT G_EXCEL.
+ENDFORM.                    " FRM_SAVE_EXCEL
+*&---------------------------------------------------------------------*
+*&      Form  FRM_CREATE_SHEET
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM FRM_CREATE_SHEET .
+  CALL METHOD OF
+    G_EXCEL
+      'Sheets' = G_SHEET.
+  CALL METHOD OF
+    G_SHEET
+    'ADD'.
+ENDFORM.                    " FRM_CREATE_SHEET
+*&---------------------------------------------------------------------*
+*&      Form  FRM_SET_SHEET_NAME
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_L_SHEET_NAME  text
+*----------------------------------------------------------------------*
+FORM FRM_SET_SHEET_NAME  USING    P_SHEET_NAME.
+  SET PROPERTY OF G_SHEET 'Name' = P_SHEET_NAME.
+ENDFORM.                    " FRM_SET_SHEET_NAME
+*&---------------------------------------------------------------------*
+*&      Form  FRM_FILL_CELL
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_L_ROW  text
+*      -->P_L_COL  text
+*      -->P_L_XH  text
+*----------------------------------------------------------------------*
+FORM FRM_FILL_CELL  USING    P_ROW
+                             P_COL
+                             P_VALUE.
+  DATA: LO_FONT TYPE OLE2_OBJECT.
+  CALL METHOD OF
+      G_EXCEL
+      'CELLS' = G_CELL
+    EXPORTING
+      #1      = P_ROW
+      #2      = P_COL.
+  SET PROPERTY OF G_CELL 'VALUE' = P_VALUE.
+  GET PROPERTY OF G_CELL 'font' = G_FONT.
+  SET PROPERTY OF G_FONT 'size' = 9.
+  SET PROPERTY OF G_FONT 'Name' = '宋体'.
+*  SET PROPERTY OF CELL 'HorizontalAlignment' = 3.  " 居中
+ENDFORM.                    " FRM_FILL_CELL
+
+*&---------------------------------------------------------------------*
+*&      Form  FRM_FILL_CELL
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_L_ROW  text
+*      -->P_L_COL  text
+*      -->P_L_XH  text
+*----------------------------------------------------------------------*
+FORM FRM_FILL_CELL_NEW  USING    P_ROW
+                             P_COL
+                             P_VALUE
+                             P_SIZE
+                             P_ALIGNMENT.
+  DATA: LO_FONT TYPE OLE2_OBJECT.
+  CALL METHOD OF
+      G_EXCEL
+      'CELLS' = G_CELL
+    EXPORTING
+      #1      = P_ROW
+      #2      = P_COL.
+
+*  SET PROPERTY OF G_CELL 'VALUE' = P_VALUE.
+  GET PROPERTY OF G_CELL 'font' = G_FONT.
+  SET PROPERTY OF G_FONT 'size' = P_SIZE.
+  GET PROPERTY OF G_CELL 'font' = G_FONT.
+  SET PROPERTY OF G_FONT 'bold' = 0.
+  SET PROPERTY OF G_FONT 'Name' = '黑体'.
+  SET PROPERTY OF G_CELL 'HorizontalAlignment' = P_ALIGNMENT.  " 1=靠左 4=靠右 3=居中
+ENDFORM.                    " FRM_FILL_CELL
+
+*&---------------------------------------------------------------------*
+*&      Form  FRM_MERGE_RANGE
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_L_XH_MERGE_X1  text
+*      -->P_L_XH_MERGE_Y1  text
+*      -->P_L_XH_MERGE_X2  text
+*      -->P_L_XH_MERGE_Y2  text
+*----------------------------------------------------------------------*
+FORM FRM_MERGE_RANGE  USING    P_X1
+                               P_Y1
+                               P_X2
+                               P_Y2.
+  CALL METHOD OF
+      G_EXCEL
+      'Cells' = G_CELL1
+    EXPORTING
+      #1      = P_X1
+      #2      = P_Y1.
+  CALL METHOD OF
+      G_EXCEL
+      'Cells' = G_CELL2
+    EXPORTING
+      #1      = P_X2
+      #2      = P_Y2.
+  CALL METHOD OF
+      G_EXCEL
+      'Range' = G_CELLS
+    EXPORTING
+      #1      = G_CELL1
+      #2      = G_CELL2.
+
+  CALL METHOD OF
+    G_CELLS
+    'merge'.
+
+ENDFORM.                    " FRM_MERGE_RANGE
+*&---------------------------------------------------------------------*
+*&      Form  FRM_DRAWLINE
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_X1  text
+*      -->P_Y1  text
+*      -->P_X2  text
+*      -->P_Y2  text
+*----------------------------------------------------------------------*
+FORM FRM_DRAWLINE  USING    P_X1
+                            P_Y1
+                            P_X2
+                            P_Y2.
+  CALL METHOD OF
+      G_EXCEL
+      'Cells' = G_CELL1
+    EXPORTING
+      #1      = P_X1
+      #2      = P_Y1.
+  CALL METHOD OF
+      G_EXCEL
+      'Cells' = G_CELL2
+    EXPORTING
+      #1      = P_X2
+      #2      = P_Y2.
+  CALL METHOD OF
+      G_EXCEL
+      'Range' = G_CELLS
+    EXPORTING
+      #1      = G_CELL1
+      #2      = G_CELL2.
+*  CALL METHOD OF cells 'Select'.
+
+  GET PROPERTY OF G_CELLS 'borders' = G_RANGE.
+  SET PROPERTY OF G_RANGE 'weight' = '2'.
+  SET PROPERTY OF G_RANGE 'linestyle' = '1'.
+ENDFORM.                    " FRM_DRAWLINE
+*&---------------------------------------------------------------------*
+*&      Form  FRM_WRITE_TITLE
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_2      text
+*      -->P_1      text
+*      -->P_L_STR  text
+*----------------------------------------------------------------------*
+FORM FRM_WRITE_TITLE  USING   P_ROW
+                               P_COL
+                               P_VALUE.
+  DATA: LO_FONT TYPE OLE2_OBJECT.
+  CALL METHOD OF
+      G_EXCEL
+      'CELLS' = G_CELL
+    EXPORTING
+      #1      = P_ROW
+      #2      = P_COL.
+  SET PROPERTY OF G_CELL 'VALUE' = P_VALUE.
+  GET PROPERTY OF G_CELL 'font' = G_FONT.
+  SET PROPERTY OF G_FONT 'size' = 10.
+  SET PROPERTY OF G_FONT 'Name' = '华文中宋'.
+  SET PROPERTY OF G_FONT 'bold' = 0.
+  SET PROPERTY OF G_CELL 'HorizontalAlignment' = 2.  " 居左
+ENDFORM.                    " FRM_WRITE_TITLE
+*&---------------------------------------------------------------------*
+*&      Form  FRM_DEL_COL
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_COL  text
+*----------------------------------------------------------------------*
+FORM FRM_DEL_COL  USING    P_COLNUM.
+  CALL METHOD OF
+      G_EXCEL
+      'COLUMNS' = G_COLUMNS
+    EXPORTING
+      #1        = P_COLNUM.
+
+  CALL METHOD OF
+    G_COLUMNS
+    'DELETE'.
+ENDFORM.                    " FRM_DEL_COL
+*&---------------------------------------------------------------------*
+*&      Form  FRM_CLEAR_DATA
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_L_YZ_MERGE_X1  text
+*      -->P_L_YZ_MERGE_Y1  text
+*      -->P_L_YZ_MERGE_X2  text
+*      -->P_L_YZ_MERGE_Y2  text
+*----------------------------------------------------------------------*
+FORM FRM_CLEAR_DATA  USING    P_X1
+                              P_Y1
+                              P_X2
+                              P_Y2.
+  PERFORM FRM_SELECT_RANGE USING P_X1 P_Y1 P_X2 P_Y2.
+
+  CALL METHOD OF
+    G_RANGE
+    'ClearContents'.
+ENDFORM.                    " FRM_CLEAR_DATA
+*&---------------------------------------------------------------------*
+*&      Form  FRM_SELECT_RANGE
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_P_X1  text
+*      -->P_P_Y1  text
+*      -->P_P_X2  text
+*      -->P_P_Y2  text
+*----------------------------------------------------------------------*
+FORM FRM_SELECT_RANGE  USING    P_X1
+                                P_Y1
+                                P_X2
+                                P_Y2.
+  CALL METHOD OF
+      G_EXCEL
+      'CELLS' = G_CELL1
+    EXPORTING
+      #1      = P_X1
+      #2      = P_Y1.
+  CALL METHOD OF
+      G_EXCEL
+      'CELLS' = G_CELL2
+    EXPORTING
+      #1      = P_X2
+      #2      = P_Y2.
+  CALL METHOD OF
+      G_EXCEL
+      'RANGE' = G_RANGE
+    EXPORTING
+      #1      = G_CELL1
+      #2      = G_CELL2.
+
+  CALL METHOD OF
+    G_RANGE
+    'SELECT'.
+ENDFORM.                    " FRM_SELECT_RANGE
+*&---------------------------------------------------------------------*
+*&      Form  FRM_PREVIEW_EXCEL
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM FRM_PREVIEW_EXCEL .
+  SET PROPERTY OF G_EXCEL 'VISIBLE' = 1.
+  CALL METHOD OF
+    G_SHEET
+    'PrintPreview'.
+ENDFORM.                    " FRM_PREVIEW_EXCEL
+*&---------------------------------------------------------------------*
+*&      Form  insert_colmun
+*&---------------------------------------------------------------------*
+*       在EXCEL模板中插入行
+*----------------------------------------------------------------------*
+*      -->row     行位置
+*----------------------------------------------------------------------*
+FORM INSERT_ROW USING ROW .
+
+  CALL METHOD OF
+      G_EXCEL
+      'ROWS'  = ROWS
+    EXPORTING
+      #1      = ROW.
+
+  CALL METHOD OF
+    ROWS
+    'INSERT'.
+
+  FREE OBJECT ROWS.
+
+ENDFORM.                    "insert_row
+
+*&---------------------------------------------------------------------*
+*&      Form  delete_row
+*&---------------------------------------------------------------------*
+*       在EXCEL模板中删除行
+*----------------------------------------------------------------------*
+*      -->row     行位置
+*----------------------------------------------------------------------*
+FORM DELETE_ROW USING ROW .
+
+  CALL METHOD OF
+      G_EXCEL
+      'ROWS'  = ROWS
+    EXPORTING
+      #1      = ROW.
+
+  CALL METHOD OF
+    ROWS
+    'DELETE'.
+
+  FREE OBJECT ROWS.
+
+ENDFORM.                    "delete_row
+
+*&---------------------------------------------------------------------*
+*&      Form  auto_fit
+*&---------------------------------------------------------------------*
+*       在EXCEL模板中自适应高度
+*----------------------------------------------------------------------*
+*
+*----------------------------------------------------------------------*
+FORM AUTO_FIT USING ROW .
+  DATA: L_END TYPE STRING,
+        L_STR TYPE STRING.
+
+  L_STR = ROW.
+  CONCATENATE L_STR ':' L_STR INTO L_END .
+  CONDENSE L_END NO-GAPS.
+
+  CALL METHOD OF
+      G_EXCEL
+      'ROWS'  = ROWS
+    EXPORTING
+      #1      = L_END.
+  CALL METHOD OF
+    ROWS
+    'SELECT'.
+  CALL METHOD OF
+    ROWS
+    'AutoFit'.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  COLUMNWIDTH
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_1091   text
+*----------------------------------------------------------------------*
+FORM COLUMNWIDTH USING COLNUM .
+  CALL METHOD OF
+      G_EXCEL
+      'COLUMNS' = COLUMNS
+    EXPORTING
+      #1        = COLNUM.
+
+  CALL METHOD OF
+    COLUMNS
+    'AutoFit'.
+ENDFORM.                    "columnwidth
+*&---------------------------------------------------------------------*
+*&      Form  FRM_FILL_CELL_NEW1
+*&---------------------------------------------------------------------*
+*       text   宋体
+*----------------------------------------------------------------------*
+*      -->P_R1  text
+*      -->P_1      text
+*      -->P_ITAB_TABIX  text
+*      -->P_11     text
+*      -->P_3      text
+*----------------------------------------------------------------------*
+FORM FRM_FILL_CELL_NEW1  USING    P_ROW
+                             P_COL
+                             P_VALUE
+                             P_SIZE
+                             P_ALIGNMENT.
+  DATA: LO_FONT TYPE OLE2_OBJECT.
+  CALL METHOD OF
+      G_EXCEL
+      'CELLS' = G_CELL
+    EXPORTING
+      #1      = P_ROW
+      #2      = P_COL.
+
+*  SET PROPERTY OF G_CELL 'VALUE' = P_VALUE.
+  GET PROPERTY OF G_CELL 'font' = G_FONT.
+  SET PROPERTY OF G_FONT 'size' = P_SIZE.
+  GET PROPERTY OF G_CELL 'font' = G_FONT.
+  SET PROPERTY OF G_FONT 'bold' = 0.
+  SET PROPERTY OF G_FONT 'Name' = '宋体'.
+  SET PROPERTY OF G_CELL 'HorizontalAlignment' = P_ALIGNMENT.  " 1=靠左 4=靠右 3=居中
+  SET PROPERTY OF G_CELL 'VALUE' = P_VALUE.
+
+ENDFORM.                    " FRM_FILL_CELL_NEW1
+
+FORM FRM_FILL_CELL_NEW2  USING    P_ROW
+                             P_COL
+                             P_VALUE
+                             P_SIZE
+                             P_ALIGNMENT.
+  DATA: LO_FONT TYPE OLE2_OBJECT.
+  CALL METHOD OF
+      G_EXCEL
+      'CELLS' = G_CELL
+    EXPORTING
+      #1      = P_ROW
+      #2      = P_COL.
+
+*  SET PROPERTY OF G_CELL 'VALUE' = P_VALUE.
+  GET PROPERTY OF G_CELL 'font' = G_FONT.
+  SET PROPERTY OF G_FONT 'size' = P_SIZE.
+  GET PROPERTY OF G_CELL 'font' = G_FONT.
+  SET PROPERTY OF G_FONT 'bold' = 1.
+  SET PROPERTY OF G_FONT 'Name' = '华文中宋'.
+  SET PROPERTY OF G_CELL 'HorizontalAlignment' = P_ALIGNMENT.  " 1=靠左 4=靠右 3=居中
+  SET PROPERTY OF G_CELL 'VALUE' = P_VALUE.
+
+ENDFORM.
+
+FORM FRM_FILL_CELL_NEW3  USING    P_ROW           "模版低栏
+                             P_COL
+                             P_VALUE
+                             P_SIZE
+                             P_ALIGNMENT.
+  DATA: LO_FONT TYPE OLE2_OBJECT.
+  CALL METHOD OF
+      G_EXCEL
+      'CELLS' = G_CELL
+    EXPORTING
+      #1      = P_ROW
+      #2      = P_COL.
+
+*  SET PROPERTY OF G_CELL 'VALUE' = P_VALUE.
+  GET PROPERTY OF G_CELL 'font' = G_FONT.
+  SET PROPERTY OF G_FONT 'size' = P_SIZE.
+  GET PROPERTY OF G_CELL 'font' = G_FONT.
+  SET PROPERTY OF G_FONT 'bold' = 0.
+  SET PROPERTY OF G_FONT 'Name' = '黑体'.
+  SET PROPERTY OF G_CELL 'HorizontalAlignment' = P_ALIGNMENT.  " 1=靠左 4=靠右 3=居中
+  SET PROPERTY OF G_CELL 'VALUE' = P_VALUE.
+
+ENDFORM.
+
+FORM FRM_FILL_CELL_NEW4  USING    P_ROW           "华文仿宋10加粗
+                             P_COL
+                             P_VALUE
+                             P_SIZE
+                             P_ALIGNMENT.
+  DATA: LO_FONT TYPE OLE2_OBJECT.
+
+  CHECK P_VALUE NE ''.
+
+  CALL METHOD OF
+      G_EXCEL
+      'CELLS' = G_CELL
+    EXPORTING
+      #1      = P_ROW
+      #2      = P_COL.
+
+*  SET PROPERTY OF G_CELL 'VALUE' = P_VALUE.
+  GET PROPERTY OF G_CELL 'font' = G_FONT.
+  SET PROPERTY OF G_FONT 'size' = P_SIZE.
+  GET PROPERTY OF G_CELL 'font' = G_FONT.
+  SET PROPERTY OF G_FONT 'bold' = 1.
+  SET PROPERTY OF G_FONT 'Name' = '华文仿宋'.
+  SET PROPERTY OF G_CELL 'HorizontalAlignment' = P_ALIGNMENT.  " 1=靠左 4=靠右 3=居中
+  SET PROPERTY OF G_CELL 'VALUE' = P_VALUE.
+ENDFORM.
+
+FORM FRM_FILL_CELL_NEW5  USING    P_ROW           "华文仿宋 12  不加粗
+                             P_COL
+                             P_VALUE
+                             P_SIZE
+                             P_ALIGNMENT.
+  DATA: LO_FONT TYPE OLE2_OBJECT.
+
+  CHECK P_VALUE NE ''.
+
+  CALL METHOD OF
+      G_EXCEL
+      'CELLS' = G_CELL
+    EXPORTING
+      #1      = P_ROW
+      #2      = P_COL.
+
+*  SET PROPERTY OF G_CELL 'VALUE' = P_VALUE.
+  GET PROPERTY OF G_CELL 'font' = G_FONT.
+  SET PROPERTY OF G_FONT 'size' = P_SIZE.
+  GET PROPERTY OF G_CELL 'font' = G_FONT.
+  SET PROPERTY OF G_FONT 'bold' = 0.
+  SET PROPERTY OF G_FONT 'Name' = '华文仿宋'.
+  SET PROPERTY OF G_CELL 'HorizontalAlignment' = P_ALIGNMENT.  " 1=靠左 4=靠右 3=居中
+  SET PROPERTY OF G_CELL 'VALUE' = P_VALUE.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  HEBING
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_R1  text
+*      -->P_0217   text
+*      -->P_R1  text
+*      -->P_0219   text
+*----------------------------------------------------------------------*
+FORM HEBING  USING    P_R1
+                      P_0217
+                      P_R2
+                      P_0219.
+  DATA: L1 TYPE STRING,
+        L3 TYPE STRING,
+        L4 TYPE STRING,
+        L2 TYPE STRING.
+  MOVE P_R1 TO L3.
+  MOVE P_R2 TO L4.
+
+  CONCATENATE P_0217 L3 INTO L1.
+  CONCATENATE P_0219 L4 INTO L2.
+  CALL METHOD OF
+      G_EXCEL
+      'Range' = G_RANGE
+    EXPORTING
+      #1      = L1
+      #2      = L2.
+
+  CALL METHOD OF
+    G_RANGE
+    'Select'.
+  SET PROPERTY OF G_RANGE 'MergeCells' = 1.   "合并单元格"
+
+ENDFORM.                    " HEBING
+*&---------------------------------------------------------------------*
+*&      Form  set height
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_R1  text
+*      -->P_0217   text
+*      -->P_R1  text
+*      -->P_0219   text
+*----------------------------------------------------------------------*
+FORM SET_ROW_HEIGHT USING IROW TYPE I IHEIGHT TYPE I.
+*Set Row Height
+  CALL METHOD OF G_EXCEL 'ROWS' = G_ROW
+    EXPORTING
+    #1 = IROW.
+  SET PROPERTY OF G_ROW 'ROWHEIGHT' = IHEIGHT.
+
+ENDFORM.
