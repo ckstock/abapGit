@@ -1,0 +1,400 @@
+*&---------------------------------------------------------------------*
+*& 包含               ZHRR700_FROM
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*& Form FRM_SET_SCR
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*      -->P_       text
+*      -->P_       text
+*&---------------------------------------------------------------------*
+FORM FRM_SET_SCR  USING    U_OTYPE U_FIELDNAME.
+  DATA: DYNPFIELDS_UP LIKE DYNPREAD OCCURS 0 WITH HEADER LINE.
+  DATA: PROGNAME LIKE SY-REPID.
+  DATA: DYNPNUMB LIKE SY-DYNNR.
+  DATA: STEPLOOP LIKE SY-STEPL.
+  DATA : SELF_REPID LIKE SY-REPID .                         "YNKK100992
+  DATA : SELF_DYNNR LIKE SY-DYNNR .                         "YNKK100992
+  DATA : F4_OBJEC   LIKE OBJEC.                            "XMKBCEK002468
+  SELF_REPID = SY-REPID.                                    "YNKK100992
+  SELF_DYNNR = SY-DYNNR.                                    "YNKK100992
+
+  CALL FUNCTION 'RH_OBJID_REQUEST'                       "XMKBCEK002468
+    EXPORTING
+      PLVAR           = '01'
+      OTYPE           = U_OTYPE
+      DYNPRO_REPID    = SELF_REPID
+      DYNPRO_DYNNR    = SELF_DYNNR
+*     dynpro_plvarfield     = 'PPHDR-PLVAR'
+*     dynpro_searkfield     = 'S_EOBJ-LOW'
+    IMPORTING
+      SEL_OBJECT      = F4_OBJEC
+    EXCEPTIONS
+      CANCELLED       = 1
+      WRONG_CONDITION = 2
+      NOTHING_FOUND   = 3
+      ILLEGAL_MODE    = 4
+      INTERNAL_ERROR  = 5
+      OTHERS          = 6.
+  CHECK F4_OBJEC-OBJID IS NOT INITIAL.
+*  get actual position
+  CALL FUNCTION 'DYNP_GET_STEPL'
+    IMPORTING
+      POVSTEPL = STEPLOOP.
+  REFRESH DYNPFIELDS_UP.
+  DYNPFIELDS_UP-STEPL     = STEPLOOP.
+  DYNPFIELDS_UP-FIELDNAME = U_FIELDNAME.
+  DYNPFIELDS_UP-FIELDVALUE = F4_OBJEC-OBJID.
+  APPEND DYNPFIELDS_UP.
+
+*  update table control
+  CALL FUNCTION 'DYNP_VALUES_UPDATE'
+    EXPORTING
+      DYNAME               = PROGNAME
+      DYNUMB               = DYNPNUMB
+    TABLES
+      DYNPFIELDS           = DYNPFIELDS_UP
+    EXCEPTIONS
+      INVALID_ABAPWORKAREA = 1
+      INVALID_DYNPROFIELD  = 2
+      INVALID_DYNPRONAME   = 3
+      INVALID_DYNPRONUMMER = 4
+      INVALID_REQUEST      = 5
+      NO_FIELDDESCRIPTION  = 6
+      UNDEFIND_ERROR       = 7
+      OTHERS               = 8.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form FRM_GET_OBJID
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM FRM_GET_OBJID .
+  REFRESH:IT_RANG,IT_OBJEC."it_result_struc,it_result_tab.
+  IF P_OBJID IS NOT INITIAL.
+*-- 组织树的读取
+    CALL FUNCTION 'RH_STRUC_GET'
+      EXPORTING
+        ACT_OTYPE      = 'O'
+        ACT_OBJID      = P_OBJID
+        ACT_WEGID      = 'O-O_DOWN'
+        ACT_BEGDA      = P_BEGDA
+        ACT_ENDDA      = P_ENDDA
+      TABLES
+*       result_tab     = it_result_tab
+        RESULT_OBJEC   = IT_OBJEC
+*       result_struc   = it_result_struc
+      EXCEPTIONS
+        NO_PLVAR_FOUND = 1
+        NO_ENTRY_FOUND = 2
+        OTHERS         = 3.
+
+    LOOP AT IT_OBJEC.
+      IT_RANG-SIGN = 'I'.
+      IT_RANG-OPTION = 'EQ'.
+      IT_RANG-LOW = IT_OBJEC-OBJID.
+      APPEND IT_RANG.
+    ENDLOOP.
+  ENDIF.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form GT_MAIN_DATA
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM GT_MAIN_DATA .
+  CHECK P9500-ZPXMC IS NOT INITIAL.
+  LOOP AT P9500.
+    IF P_ZPXMC IS NOT INITIAL.
+      CHECK P_ZPXMC = P9500-ZPXMC.
+    ENDIF.
+
+    IF P_ZPXZT IS NOT INITIAL.
+      CHECK P_ZPXZT = P9500-ZPXZT.
+    ENDIF.
+
+    IF P_ZKHNR IS NOT INITIAL.
+      CHECK P_ZKHNR = P9500-ZKHNR.
+    ENDIF.
+
+    IF P9500-BEGDA BETWEEN P_BEGDA  AND P_ENDDA OR P9500-ENDDA BETWEEN P_BEGDA  AND P_ENDDA.
+*    IF P_BEGDA BETWEEN P9500-BEGDA  AND P9500-ENDDA OR P_ENDDA BETWEEN P9500-BEGDA  AND P9500-ENDDA..
+**-- 培训开始时间
+      GT_MAIN_DATA-BEGDA = P9500-BEGDA.
+**-- 培训结束时间
+      GT_MAIN_DATA-ENDDA = P9500-ENDDA.
+*--部门
+      CALL FUNCTION 'RH_STRUC_GET'
+        EXPORTING
+          ACT_OTYPE      = 'P'
+          ACT_OBJID      = PERNR-PERNR
+          ACT_WEGID      = 'P-S-O'
+          ACT_BEGDA      = P_BEGDA
+          ACT_ENDDA      = P_ENDDA
+        TABLES
+*         result_tab     = it_result_tab
+          RESULT_OBJEC   = GT_OBJEC
+          RESULT_STRUC   = GT_STRUC
+        EXCEPTIONS
+          NO_PLVAR_FOUND = 1
+          NO_ENTRY_FOUND = 2
+          OTHERS         = 3.
+
+      DELETE GT_OBJEC WHERE OTYPE <> 'O'.
+      LOOP AT GT_OBJEC.
+        GT_MAIN_DATA-ORGEH = GT_OBJEC-SHORT.
+      ENDLOOP.
+
+**--人员编号
+      GT_MAIN_DATA-PERNR = PERNR-PERNR.
+**--姓名
+      GT_MAIN_DATA-NACHN = P0002-NACHN.
+**--身份证号
+      GT_MAIN_DATA-ICNUM = P0185-ICNUM.
+**-- 培训名称
+      GT_MAIN_DATA-ZPXMC = P9500-ZPXMC.
+**-- 培训主题
+      GT_MAIN_DATA-ZPXZT = P9500-ZPXZT.
+**-- 主办部门
+      GT_MAIN_DATA-ZZBBM = P9500-ZZBBM.
+**-- 培训课时
+      GT_MAIN_DATA-ZPXKS = P9500-ZPXKS.
+**-- 主讲人
+      GT_MAIN_DATA-ZZJR = P9500-ZZJR.
+**-- 考核日期
+      IF P9500-ZKHRQ IS NOT INITIAL.
+        GT_MAIN_DATA-ZKHRQ = P9500-ZKHRQ.
+      ENDIF.
+**-- 考核内容
+      GT_MAIN_DATA-ZKHNR = P9500-ZKHNR.
+**-- 考核方式
+      GT_MAIN_DATA-ZKHFS = P9500-ZKHFS.
+**-- 考核成绩
+      GT_MAIN_DATA-ZKHCJ = P9500-ZKHCJ.
+**-- 考核结果
+      GT_MAIN_DATA-ZKHJG = P9500-ZKHJG.
+**-- 课程学习进度
+      GT_MAIN_DATA-ZKCXXJD = P9500-ZKCXXJD.
+**-- 评估
+      GT_MAIN_DATA-ZPG  = P9500-ZPG .
+      APPEND  GT_MAIN_DATA.CLEAR GT_MAIN_DATA.
+
+      LOOP AT GT_MAIN_DATA.
+        GT_MAIN_DATA-XH = SY-TABIX.
+        MODIFY GT_MAIN_DATA.CLEAR GT_MAIN_DATA.
+      ENDLOOP.
+    ENDIF.
+  ENDLOOP.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form GT_SUB_DATA
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM GT_SUB_DATA .
+*     CHECK P9500-ZPXMC IS NOT INITIAL.
+*  IF P_ZPXMC IS NOT INITIAL.
+*    CHECK P_ZPXMC = P9500-ZPXMC.
+*  ENDIF.
+
+  LOOP AT P9500
+    WHERE ( BEGDA >= P_BEGDA AND BEGDA <= P_ENDDA ) OR
+   ( ENDDA >= P_BEGDA AND ENDDA <= P_ENDDA ) OR  ( BEGDA <= P_BEGDA AND ENDDA >= P_ENDDA )                       .
+*      WHERE BEGDA <= P_BEGDA AND ENDDA >= P_BEGDA OR
+*    BEGDA <= P_ENDDA AND ENDDA >= P_ENDDA.
+
+    IF P_ZPXMC IS NOT INITIAL.
+      CHECK P_ZPXMC = P9500-ZPXMC.
+    ENDIF.
+
+    CHECK P9500-ZPXMC IS NOT INITIAL.
+**-- 培训开始时间
+    GT_RESULT-BEGDA = P9500-BEGDA.
+**-- 培训结束时间
+    GT_RESULT-ENDDA = P9500-ENDDA.
+**-- 参加培训
+    GT_RESULT-ZPXMC = P9500-ZPXMC.
+**-- 评估
+    GT_RESULT-ZPG  = P9500-ZPG .
+**-- 考核成绩
+    GT_RESULT-ZKHCJ  = P9500-ZKHCJ .
+**-- 评估
+    GT_RESULT-ZPG  = P9500-ZPG .
+
+*****************
+*  IF P0002[] IS NOT INITIAL.
+    CLEAR:GT_OBJEC[],GT_OBJEC,GT_STRUC[],GT_STRUC.
+    CALL FUNCTION 'RH_STRUC_GET'
+      EXPORTING
+        ACT_OTYPE      = 'P'
+        ACT_OBJID      = PERNR-PERNR
+        ACT_WEGID      = 'P-S-O-O'
+        ACT_BEGDA      = P_BEGDA
+        ACT_ENDDA      = P_ENDDA
+      TABLES
+*       result_tab     = it_result_tab
+        RESULT_OBJEC   = GT_OBJEC
+        RESULT_STRUC   = GT_STRUC
+      EXCEPTIONS
+        NO_PLVAR_FOUND = 1
+        NO_ENTRY_FOUND = 2
+        OTHERS         = 3.
+**--职位
+    LOOP AT GT_STRUC WHERE VPROZT = '100'.
+
+      READ TABLE GT_OBJEC WITH KEY OBJID = GT_STRUC-OBJID OTYPE = 'S'..
+      IF SY-SUBRC = 0.
+        GT_RESULT-PLANS = GT_OBJEC-SHORT.
+        EXIT.
+      ENDIF.
+    ENDLOOP.
+
+*    LOOP AT GT_STRUC WHERE VPROZT = '100'.
+*      IF GT_STRUC-VPROZT = '100'.
+*        READ TABLE GT_OBJEC WITH KEY OBJID = GT_STRUC-OBJID otype = 'S'..
+*        IF SY-SUBRC = 0.
+*          GT_RESULT-PLANS = GT_OBJEC-SHORT.
+*          EXIT.
+*        ENDIF.
+*      ELSE.
+*        READ TABLE GT_OBJEC WITH KEY OBJID = GT_STRUC-OBJID otype = 'S'.
+*        IF SY-SUBRC = 0.
+*          GT_RESULT-PLANS = GT_OBJEC-SHORT.
+*          EXIT.
+*        ENDIF.
+*      ENDIF.
+*
+*    ENDLOOP.
+
+*--部门
+    LOOP AT GT_STRUC WHERE LEVEL = '3'.
+      READ TABLE GT_OBJEC WITH KEY OBJID = GT_STRUC-OBJID.
+      IF SY-SUBRC = 0.
+        GT_RESULT-ORGEH = GT_OBJEC-SHORT.
+      ENDIF.
+    ENDLOOP.
+*--区域/子公司
+    DATA:HS TYPE I.
+    LOOP AT GT_STRUC WHERE VPROZT = '100' AND OTYPE = 'S' .
+      HS = SY-TABIX.
+      HS = HS + 2.
+    ENDLOOP.
+
+    READ TABLE GT_STRUC INDEX HS   .
+    IF SY-SUBRC = 0.
+      LOOP AT GT_OBJEC WHERE  OBJID = GT_STRUC-OBJID.
+        GT_RESULT-REGION = GT_OBJEC-SHORT.
+        EXIT.
+      ENDLOOP.
+    ENDIF.
+
+**--人员编号
+    GT_RESULT-PERNR = PERNR-PERNR.
+**--姓名
+    GT_RESULT-NACHN = P0002-NACHN.
+**--年龄
+    GT_RESULT-AGES = SY-DATUM+0(4) - P0002-GBDAT+0(4) .
+    IF SY-DATUM+4(4) LE P0002-GBDAT+4(4).
+      GT_RESULT-AGES = GT_RESULT-AGES - 1.
+    ENDIF.
+    CONDENSE GT_RESULT-AGES.
+**--入职日期
+    LOOP AT P0000 WHERE BEGDA <= P_BEGDA AND ENDDA >= P_ENDDA AND ( MASSN = '01' OR MASSN = '08'
+      OR MASSN = '10' OR MASSN = '11').
+      GT_RESULT-ZNUM34 = P0000-BEGDA.
+      RZRQ = P0000-BEGDA.
+    ENDLOOP.
+**--工龄
+    ZINDEX = 24.
+    CALL FUNCTION 'FIMA_DAYS_AND_MONTHS_AND_YEARS'
+      EXPORTING
+        I_DATE_FROM    = RZRQ
+        I_DATE_TO      = SY-DATUM
+        I_FLG_SEPARATE = 'X'
+      IMPORTING
+        E_MONTHS       = MONTH
+        E_YEARS        = YEAR.
+    L_YEAR = YEAR. L_MONTH = MONTH. CONDENSE:L_YEAR,L_MONTH.
+    IF L_YEAR NE '0'.
+      CONCATENATE L_YEAR '年' L_MONTH '月' INTO GT_RESULT-GL.
+    ELSE.
+      CONCATENATE L_MONTH '月' INTO GT_RESULT-GL.
+    ENDIF.
+**--学历
+**--学位 学历 毕业学校 毕业时间  专业
+    SORT P9002 BY ZXL.
+    LOOP AT P9002 WHERE ZXL IS NOT INITIAL.
+      GT_RESULT-XL = P9002-ZXLWB.   "--学历
+      EXIT.
+    ENDLOOP.
+**--专业
+    IF P9002-ZZY = '99999'." IS NOT INITIAL.
+      GT_RESULT-ZY = P9002-ZQTZY.   "--专业
+    ELSEIF P9002-ZZY <> '99999'.
+      GT_RESULT-ZY = P9002-ZZYWB.
+    ENDIF.
+**--执（职）资格证书
+    GT_RESULT-ZZYZGMC = P9008-ZZYZGMC.
+
+**--任职开始时间-------------------------
+    READ TABLE GT_HRP1001 WITH KEY OBJID = P9500-PERNR BINARY SEARCH.
+    IF SY-SUBRC = 0.
+      IF GT_HRP1001-ENDDA  = '99991231'.
+        GT_RESULT-RZSJ = GT_HRP1001-BEGDA.
+      ELSE.
+        GT_RESULT-RZSJ = GT_HRP1001-BEGDA. "离职人员
+      ENDIF.
+    ENDIF.
+**--性别
+    IF P0002-GESCH =  '1'.
+      GT_RESULT-XB = '男'.
+    ELSEIF P0002-GESCH =  '2'.
+      GT_RESULT-XB = '女'.
+    ENDIF.
+**--内部晋升/外招------------------------------
+    DATA:TMS TYPE I.
+    CLEAR:TMS.
+    LOOP AT P0000.
+      TMS = TMS + 1.
+    ENDLOOP.
+    IF TMS > 1.
+      GT_RESULT-UP =  '内部晋升'.
+    ELSE.
+      GT_RESULT-UP =  '外招'.
+    ENDIF.
+
+    APPEND  GT_RESULT.CLEAR GT_RESULT.
+
+    LOOP AT GT_RESULT.
+      GT_RESULT-XH = SY-TABIX.
+      MODIFY GT_RESULT.CLEAR GT_RESULT.
+    ENDLOOP.
+  ENDLOOP.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form ALV
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM ALV .
+  IF 06P06 = 'X'.  "培训记录管理情况表
+    PERFORM DISPLAY_ALV1.
+  ELSE.
+    PERFORM DISPLAY_ALV2. "培训评估查询表
+  ENDIF.
+ENDFORM.
