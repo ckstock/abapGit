@@ -1,0 +1,180 @@
+*&---------------------------------------------------------------------*
+*&  包含                ZR_HR_PY005_DOWNLOAD
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*&      Form  EXCEL_DATA
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM EXCEL_DATA2 .
+  DATA: L_NAME         LIKE WWWDATATAB,
+        L_RC           LIKE SY-SUBRC,
+        L_FULLPATH     TYPE STRING,
+        L_SHEET_NUMBER TYPE I VALUE 1,
+        L_TEXT         TYPE STRING.
+
+  CONCATENATE 'C:\HR\培训评估查询表' SY-DATUM '.XLS' INTO G_FILE.
+
+  L_NAME-RELID = 'MI'.
+  L_NAME-OBJID = 'ZHRR700_02'."EXCEL模板的名
+
+  CALL FUNCTION 'DOWNLOAD_WEB_OBJECT'
+    EXPORTING
+      KEY         = L_NAME
+      DESTINATION = G_FILE
+    IMPORTING
+      RC          = L_RC.
+  IF L_RC <> 0.
+    MESSAGE '模板文件(SMW0:ZHRRPY005)下载失败，请与开发人员联系!' TYPE 'S'.
+    LEAVE LIST-PROCESSING.
+  ENDIF.
+
+  L_FULLPATH = G_FILE.
+
+  CONCATENATE '正在处理文件:' G_FILE INTO L_TEXT.
+  CALL FUNCTION 'SAPGUI_PROGRESS_INDICATOR'
+    EXPORTING
+      TEXT = L_TEXT.
+
+  PERFORM FRM_OPEN_EXCEL USING L_FULLPATH 0.         " 打开excel模板
+
+  PERFORM FRM_OPEN_EXCEL_SHEET USING L_SHEET_NUMBER.     "打开excel第一个sheet
+  PERFORM FRM_PROCESS_EXCEL2.                            "向EXCEL中填充数据
+  SET PROPERTY OF G_EXCEL 'VISIBLE'  = 1.                "过程可见
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  FRM_PROCESS_EXCEL
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM FRM_PROCESS_EXCEL2 .
+  DATA:R1 TYPE I VALUE '4'.
+  DATA:L_TIT      TYPE CHAR50,L_TIT1(30),L_TIT2(30).
+
+*  LOOP AT itab WHERE cqbrs < 0.
+*    CONDENSE itab-cqbrs.
+*    itab-cqbrs = itab-cqbrs * ( -1 ).CONDENSE itab-cqbrs.
+*    CONCATENATE '-' itab-cqbrs INTO itab-cqbrs.
+*    CONDENSE itab-cqbrs.
+*    MODIFY itab. CLEAR itab.
+*  ENDLOOP.
+
+*  concatenate g_begda+0(4) '年' s_data-low+4(2) '月到' s_data-high+4(2) '五险一金明细表' into l_tit.
+
+  L_TIT = '培训评估查询表'.
+  IF P_OBJID IS NOT INITIAL.
+    SELECT SINGLE STEXT INTO L_TIT1 FROM HRP1000 WHERE OBJID = P_OBJID AND OTYPE = 'O'.
+  ELSE.
+    L_TIT1 = '九洲（中国）医药股份有限公司'.
+  ENDIF.
+
+
+  PERFORM FRM_FILL_CELL_NEW1 USING 3 2 L_TIT1 11 1.
+  PERFORM FRM_FILL_CELL_NEW2 USING 2 1 L_TIT 14 3.
+
+*  CALL METHOD OF g_excel 'COLUMNS' = g_column           "将第5列设置为文本格式
+*        EXPORTING
+*          #1 = 6.
+*  SET PROPERTY OF g_column 'ColumnWidth' = 10.
+*  SET PROPERTY OF g_column 'NumberFormat' = '@'.
+
+*  READ TABLE itab2 INDEX 1.
+*  IF sy-subrc = 0.
+*    MOVE-CORRESPONDING itab2 to itab.
+*    APPEND itab. CLEAR itab.
+*  ENDIF.
+
+
+
+  DATA:L_LINE TYPE I.
+  DESCRIBE TABLE GT_RESULT LINES L_LINE.
+  DATA:L_INDEX        TYPE I,
+       WA_EXCEL(4096),
+       L_STR(512).
+  DATA:LT_EXCEL(4096) OCCURS 0.
+  FIELD-SYMBOLS:<FSSTR> LIKE GT_RESULT,
+                <FSFLD>.
+  DATA:G_SEPARATOR TYPE C.
+  G_SEPARATOR = CL_ABAP_CHAR_UTILITIES=>HORIZONTAL_TAB.
+  LOOP AT GT_RESULT ASSIGNING <FSSTR>.
+    L_INDEX = 0.
+    DO 19 TIMES.
+      ADD 1 TO L_INDEX.
+      ASSIGN COMPONENT L_INDEX OF STRUCTURE <FSSTR> TO <FSFLD>.
+      IF SY-SUBRC <> 0.
+        EXIT.
+      ENDIF.
+      CLEAR:L_STR.
+      WRITE <FSFLD> TO  L_STR LEFT-JUSTIFIED.
+      """""""""""""""""""""""""""""""""""""""""""""""""""
+      DATA:L_PER(8).
+      IF L_STR = '00000000'.
+        CLEAR L_STR.
+      ENDIF.
+      """""""""""""""""""""""""""""""""""""""""""""""""""
+      CONDENSE L_STR.
+      IF L_INDEX EQ 1.
+        WA_EXCEL = L_STR.
+      ELSE.
+        CONCATENATE WA_EXCEL L_STR INTO WA_EXCEL SEPARATED BY G_SEPARATOR.
+      ENDIF.
+    ENDDO.
+    APPEND WA_EXCEL TO LT_EXCEL.
+    CLEAR:WA_EXCEL.
+  ENDLOOP.
+
+*  CLEAR l_index.
+*  LOOP AT itab2 ASSIGNING <fsstr>.
+*    l_index = 0.
+*    ADD 1 TO l_index.
+*    <fsfld> = '合计'.
+*    CLEAR:l_str.
+*    WRITE <fsfld> TO  l_str LEFT-JUSTIFIED.
+*    CONDENSE l_str.
+*    CONCATENATE wa_excel l_str INTO wa_excel SEPARATED BY g_separator.
+*
+*    APPEND wa_excel TO lt_excel.
+*    CLEAR:wa_excel.
+*  ENDLOOP.
+
+  DATA: L_RET TYPE I.
+  CALL METHOD CL_GUI_FRONTEND_SERVICES=>CLIPBOARD_EXPORT
+    IMPORTING
+      DATA = LT_EXCEL
+    CHANGING
+      RC   = L_RET.
+
+  CALL METHOD OF
+    G_SHEET
+    'Activate'.
+  CALL METHOD OF
+      G_SHEET
+      'Cells' = G_CELL
+    EXPORTING
+      #1      = 5
+      #2      = 'A'.
+
+* Paste data from clipboard
+  CALL METHOD OF
+    G_CELL
+    'Select'.
+  CALL METHOD OF
+    G_SHEET
+    'Paste'.
+
+  DESCRIBE TABLE GT_RESULT LINES R1.
+  R1 = R1 + 4.
+*  DO l_line TIMES.
+  PERFORM COLUMNWIDTH USING 'B:S'.                 "优化列宽
+  PERFORM FRM_DRAWLINE USING 5 'A' R1 'S'.         "加边框  从第5 行开始  a列到s 列
+*    r1 = r1 + 1.
+*  ENDDO.
+
+
+ENDFORM.                    " FRM_PROCESS_EXCEL
