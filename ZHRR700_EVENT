@@ -1,0 +1,36 @@
+*&---------------------------------------------------------------------*
+*&  包含                ZR_HR_PA12_EVENT
+*&---------------------------------------------------------------------*
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR P_OBJID.                   "为组织单位选择做了一个选择帮助
+  PERFORM FRM_SET_SCR USING 'O' 'P_OBJID'.
+
+
+
+START-OF-SELECTION.
+
+  IF P_BEGDA IS INITIAL.
+    MESSAGE '请输入核算期间' TYPE 'S' DISPLAY LIKE 'E'. EXIT .
+  ENDIF.
+
+  PERFORM FRM_GET_OBJID.      "组织单位下的数据
+
+  CLEAR:GT_HRP1001[],GT_HRP1001 .
+  SELECT * INTO CORRESPONDING FIELDS OF TABLE GT_HRP1001  FROM HRP1001
+    WHERE   OTYPE = 'P' AND PLVAR = '01' AND SCLAS = 'S'
+      AND ( ( BEGDA <= P_BEGDA AND ENDDA >= P_ENDDA )
+      OR  ( BEGDA >= P_BEGDA AND BEGDA <= P_ENDDA  )  OR  ( BEGDA <= P_BEGDA AND ENDDA <= P_ENDDA ) ).
+  SORT GT_HRP1001 BY OBJID BEGDA DESCENDING.
+*  DELETE ADJACENT DUPLICATES FROM GT_HRP1001 COMPARING OBJID.
+
+  GET PERNR.
+
+  CHECK P0001-ORGEH IN IT_RANG.                                        "筛选组织单位在所选范围内的人员
+  IF 06P06 = 'X'.  "培训记录管理情况表
+    PERFORM GT_MAIN_DATA.
+  ELSE.
+    PERFORM GT_SUB_DATA. "培训评估查询表
+  ENDIF.
+
+END-OF-SELECTION.
+
+  PERFORM ALV. "ALV 数据展示
