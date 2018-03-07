@@ -1,0 +1,155 @@
+*&---------------------------------------------------------------------*
+*& 包含               ZHRR700_ALV_1
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*& Form DISPLAY_ALV1
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM DISPLAY_ALV1 .
+  PERFORM LAYOUT_BUILD.
+  PERFORM SORT_BUILD.
+  PERFORM FIELDCAT USING GT_FIELDCAT.
+  PERFORM DISPLAY2.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  LAYOUT_BUILD
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM LAYOUT_BUILD .
+  GT_LAYPUT-COLWIDTH_OPTIMIZE    = 'X'.
+  GT_LAYPUT-ZEBRA    = 'X'.
+  GT_LAYPUT-DETAIL_INITIAL_LINES = 'X'.
+*  gt_layput-box_fieldname = 'FLAG'.
+ENDFORM.
+FORM SORT_BUILD .
+  DATA LWA_SORT TYPE SLIS_SORTINFO_ALV.
+  LWA_SORT-FIELDNAME = 'PERNR'.
+  LWA_SORT-UP = 'X'.
+  LWA_SORT-SUBTOT = 'X'.
+  APPEND LWA_SORT TO LT_SORT.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*&      Form  FIELDCAT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_GT_FIELDCAT  text
+*----------------------------------------------------------------------*
+FORM FIELDCAT  USING GT_FIELDCAT TYPE SLIS_T_FIELDCAT_ALV.
+  DATA: AFIELDCAT TYPE SLIS_FIELDCAT_ALV,
+        POS       TYPE I.
+  CLEAR POS.
+  DEFINE D_GET_FIELD.
+    pos = pos + 1.
+    clear afieldcat.
+    afieldcat-col_pos  = pos.
+    afieldcat-fieldname  = &1.
+    afieldcat-seltext_l = &2.
+    afieldcat-key = &3.
+    afieldcat-do_sum = &4.
+    append afieldcat to GT_FIELDCAT.
+  END-OF-DEFINITION.
+  D_GET_FIELD   ' XH       '     '序号        '    'X'     '      '.
+  D_GET_FIELD   ' ORGEH    '     '部门        '    'X'     '      '.
+  D_GET_FIELD   ' NACHN    '     '姓名        '    'X'     '      '.
+  D_GET_FIELD   ' PERNR    '     '人员编号    '    'X'     '      '.
+  D_GET_FIELD   ' ICNUM    '     '身份证号码  '    'X'     '      '.
+  D_GET_FIELD   ' BEGDA    '     '培训开始时间'    'X'     '      '."""______________-__________
+  D_GET_FIELD   ' ENDDA    '     '培训结束时间'    ' '     '      '.
+  D_GET_FIELD   ' ZPXMC    '     '培训名称    '    ' '     '      '.
+  D_GET_FIELD   ' ZPXZT    '     '培训主题    '    ' '     '      '.
+  D_GET_FIELD   ' ZZBBM    '     '主办部门    '    ' '     '      '.
+  D_GET_FIELD   ' ZPXKS    '     '培训课时    '    ' '     '      '.
+  D_GET_FIELD   ' ZZJR     '     '主讲人      '    ' '     '      '.
+  D_GET_FIELD   ' ZKHRQ    '     '考核日期    '    ' '     '      '.
+  D_GET_FIELD   ' ZKHNR    '     '考核内容    '    ' '     '      '.
+  D_GET_FIELD   ' ZKHFS    '     '考核方式    '    ' '     '      '.
+  D_GET_FIELD   ' ZKHCJ    '     '考核成绩    '    ' '     '      '.
+  D_GET_FIELD   ' ZKHJG    '     '考核结果    '    ' '     '      '.
+  D_GET_FIELD   ' ZKCXXJD  '     '课程学习进度'    ' '     '      '.
+  D_GET_FIELD   ' ZPG      '     '评估        '    ' '     '      '.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*&      Form  DISPLAY
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM DISPLAY2 .
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      I_CALLBACK_USER_COMMAND     = 'USER_COMMAND'
+      I_CALLBACK_PF_STATUS_SET    = 'USER_STATUS'
+      I_CALLBACK_PROGRAM          = SY-REPID
+      IS_LAYOUT                   = GT_LAYPUT
+      I_CALLBACK_HTML_TOP_OF_PAGE = 'HTML_TOP_OF_PAGE' " 调用ALV表头显示
+      IT_FIELDCAT                 = GT_FIELDCAT[]
+*     it_sort                     = lt_sort
+      I_HTML_HEIGHT_TOP           = 20            " 设置抬头宽度
+    TABLES
+      T_OUTTAB                    = GT_MAIN_DATA
+    EXCEPTIONS
+      PROGRAM_ERROR               = 1
+      OTHERS                      = 2.
+
+ENDFORM.
+
+FORM USER_STATUS USING EXTAB TYPE SLIS_T_EXTAB.
+  SET PF-STATUS 'STATUS_ALV004'.
+
+*  SET TITLEBAR 'TITLE_ALV003'.
+ENDFORM.
+
+FORM USER_COMMAND USING R_UCOMM LIKE SY-UCOMM
+                        RS_SELFIELD TYPE SLIS_SELFIELD.
+  DATA:OK_CODE TYPE SY-UCOMM.
+  OK_CODE = R_UCOMM.
+  CASE OK_CODE.
+    WHEN 'EXCEL66'.
+      PERFORM EXCEL_DATA.
+*    WHEN 'PRINT'.
+*      PERFORM PRINT_DATA.
+    WHEN OTHERS.
+  ENDCASE.
+*  rs_selfield-refresh = 'X'.     "刷新
+ENDFORM.
+***********------------------------------------------
+FORM HTML_TOP_OF_PAGE USING DOCUMENT TYPE REF TO CL_DD_DOCUMENT.
+  DATA: TEXT TYPE SDYDO_TEXT_ELEMENT.
+  DATA: M_P      TYPE I,
+        M_BUFFER TYPE STRING.
+  DATA:L_TIT3(30),G_LINES(5).
+  IF P_OBJID IS NOT INITIAL.
+    SELECT SINGLE STEXT INTO L_TIT3 FROM HRP1000 WHERE OBJID = P_OBJID AND OTYPE = 'O'.
+  ELSE.
+    L_TIT3 = '九洲（中国）医药股份有限公司'.
+  ENDIF.
+
+  DESCRIBE TABLE GT_MAIN_DATA LINES G_LINES.
+  CONCATENATE  '<HTML><CENTER><H2>' '培训记录管理情况表' '</H2></CENTER></HTML>' INTO M_BUFFER.  " 居中  <H1>设置字体格式
+  CALL METHOD DOCUMENT->HTML_INSERT
+    EXPORTING
+      CONTENTS = M_BUFFER
+    CHANGING
+      POSITION = M_P.
+
+  CONCATENATE  '<HTML><LEFT><G1>' '单位名称:' L_TIT3 '　　　　' '人数:'G_LINES '</G1></LEFT></HTML>'INTO M_BUFFER.  " 居中  <H1>设置字体格式
+  CALL METHOD DOCUMENT->HTML_INSERT
+    EXPORTING
+      CONTENTS = M_BUFFER
+    CHANGING
+      POSITION = M_P.
+
+ENDFORM.                    "HTML_TOP_OF_PAGE
